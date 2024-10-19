@@ -13,7 +13,7 @@
 
    - Clone the forked repository locally:
      ```bash
-     git clone hhttps://github.com/harry713j/clanci
+     git clone https://github.com/harry713j/clanci
      cd blog-app
      ```
 
@@ -21,7 +21,7 @@
 
    - Create a `.env` file:
      ```bash
-     cp .env.example .env.local
+     cp .env.example .env
      ```
    - Replace the variables as needed.
 
