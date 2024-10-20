@@ -10,4 +10,11 @@ services:
       - /app/node_modules
     environment:
       - MONGODB_URI=${MONGODB_URI}
+      - CLOUDINARY_CLOUD_NAME = ${CLOUDINARY_CLOUD_NAME}
+      - CLOUDINARY_API_KEY = ${CLOUDINARY_API_KEY}
+      - CLOUDINARY_API_SECRET = ${CLOUDINARY_API_SECRET}
+      - SMTP_HOST = ${SMTP_HOST}
+      - USER_EMAIL = ${USER_EMAIL}
+      - EMAIL_APP_PASSWORD = ${EMAIL_APP_PASSWORD}
+      - NEXTAUTH_SECRET = ${NEXTAUTH_SECRET}
     command: pnpm dev

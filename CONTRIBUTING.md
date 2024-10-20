@@ -14,7 +14,7 @@
    - Clone the forked repository locally:
      ```bash
      git clone https://github.com/harry713j/clanci
-     cd blog-app
+     cd clanci
      ```
 
 3. **Set Up Environment Variables**
