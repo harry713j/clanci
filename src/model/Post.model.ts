@@ -24,6 +24,7 @@ const CommentSchema: Schema<Comment> = new Schema(
 export interface Post extends Document {
   userId: User;
   title: string;
+  slug: string;
   blogContent: string;
   image: string;
   visibility: boolean;
@@ -42,6 +43,10 @@ const PostSchema: Schema<Post> = new Schema(
       required: [true, "Post title is required"],
       trim: true,
       maxlength: 64,
+    },
+    slug: {
+      type: String,
+      required: [true, "Slug is required"],
     },
     blogContent: {
       type: String,
