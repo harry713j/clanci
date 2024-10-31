@@ -30,7 +30,13 @@ export async function GET(
 
     const post = await PostModel.findOne({ userId: user._id, slug })
       .populate("userId", "username firstName lastName")
-      .populate("comments");
+      .populate({
+        path: "comments",
+        populate: {
+          path: "commentedByUserId",
+          select: "username profilePicture",
+        },
+      });
 
     if (!post) {
       return Response.json(
