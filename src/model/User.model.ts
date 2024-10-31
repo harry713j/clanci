@@ -1,5 +1,4 @@
 import mongoose, { Schema, Document } from "mongoose";
-import { Post } from "./Post.model";
 
 export interface User extends Document {
   username: string;
@@ -12,7 +11,7 @@ export interface User extends Document {
   bio: string;
   firstName: string;
   lastName: string;
-  posts: Post[];
+  posts: mongoose.Types.ObjectId[];
 }
 
 const UserSchema: Schema<User> = new Schema(
@@ -22,6 +21,7 @@ const UserSchema: Schema<User> = new Schema(
       required: [true, "Username is required"],
       trim: true,
       unique: true,
+      index: true,
     },
     email: {
       type: String,
@@ -64,7 +64,7 @@ const UserSchema: Schema<User> = new Schema(
     },
     posts: [
       {
-        type: mongoose.Types.ObjectId,
+        type: Schema.Types.ObjectId,
         ref: "Post",
       },
     ],

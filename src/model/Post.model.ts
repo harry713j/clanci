@@ -1,9 +1,8 @@
 import mongoose, { Schema, Document } from "mongoose";
-import { User } from "./User.model";
 
 export interface Comment extends Document {
   content: string;
-  commentedByUserId: User;
+  commentedByUserId: mongoose.Types.ObjectId;
 }
 
 const CommentSchema: Schema<Comment> = new Schema(
@@ -14,7 +13,7 @@ const CommentSchema: Schema<Comment> = new Schema(
       maxlength: 128,
     },
     commentedByUserId: {
-      type: mongoose.Types.ObjectId,
+      type: Schema.Types.ObjectId,
       ref: "User",
     },
   },
@@ -22,20 +21,20 @@ const CommentSchema: Schema<Comment> = new Schema(
 );
 
 export interface Post extends Document {
-  userId: User;
+  userId: mongoose.Types.ObjectId;
   title: string;
   slug: string;
   blogContent: string;
   image: string;
   visibility: boolean;
   comments: Comment[];
-  likes: number;
+  likes: mongoose.Types.ObjectId[];
 }
 
 const PostSchema: Schema<Post> = new Schema(
   {
     userId: {
-      type: mongoose.Types.ObjectId,
+      type: Schema.Types.ObjectId,
       ref: "User",
     },
     title: {
@@ -47,6 +46,7 @@ const PostSchema: Schema<Post> = new Schema(
     slug: {
       type: String,
       required: [true, "Slug is required"],
+      index: true,
     },
     blogContent: {
       type: String,
@@ -60,10 +60,12 @@ const PostSchema: Schema<Post> = new Schema(
       default: true,
     },
     comments: [CommentSchema],
-    likes: {
-      type: Number,
-      default: 0,
-    },
+    likes: [
+      {
+        type: Schema.Types.ObjectId,
+        ref: "User",
+      },
+    ],
   },
   { timestamps: true }
 );
