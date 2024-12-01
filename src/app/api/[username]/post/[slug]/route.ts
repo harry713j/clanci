@@ -68,6 +68,10 @@ export async function GET(
   }
 }
 
+/* FIXME: Change the process, now the content of blog will come from rich text editor and 
+            there is the chance that user upload multiple images for the blog, so fix it with cloudinary 
+            for multiple image upload. Also the blog content will come as markdown so we have to handle it.
+  */
 export async function PATCH(
   request: Request,
   { params }: { params: { username: string; slug: string } }

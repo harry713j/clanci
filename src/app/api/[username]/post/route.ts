@@ -7,6 +7,10 @@ import fs from "fs/promises";
 import { revalidatePath } from "next/cache";
 
 export async function POST(request: Request) {
+  /* FIXME: Change the process, now the content of blog will come from rich text editor and 
+            there is the chance that user upload multiple images for the blog, so fix it with cloudinary 
+            for multiple image upload. Also the blog content will come as markdown so we have to handle it.
+  */
   await dbConnect();
 
   const session = await getServerSession(authOptions);
@@ -23,6 +27,7 @@ export async function POST(request: Request) {
   }
 
   try {
+    //TODO: also take blog categories
     const formData = await request.formData();
     const file = formData.get("blog-image") as File;
     const title = formData.get("title") as string;

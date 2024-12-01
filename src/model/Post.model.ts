@@ -29,6 +29,7 @@ export interface Post extends Document {
   visibility: boolean;
   comments: Comment[];
   likes: mongoose.Types.ObjectId[];
+  categories: Array<string>;
 }
 
 const PostSchema: Schema<Post> = new Schema(
@@ -46,6 +47,7 @@ const PostSchema: Schema<Post> = new Schema(
     slug: {
       type: String,
       required: [true, "Slug is required"],
+      unique: true,
       index: true,
     },
     blogContent: {
@@ -64,8 +66,13 @@ const PostSchema: Schema<Post> = new Schema(
       {
         type: Schema.Types.ObjectId,
         ref: "User",
+        unique: true,
       },
     ],
+    categories: {
+      type: [String],
+      required: [true, "Blog categories is required"],
+    },
   },
   { timestamps: true }
 );
