@@ -7,6 +7,7 @@ import mongoose from "mongoose";
 import { deleteFromCloudinary, uploadToCloudinary } from "@/lib/cloudinary";
 import { revalidatePath } from "next/cache";
 import fs from "fs/promises";
+import TurndownService from "turndown";
 
 export async function GET(
   request: Request,
@@ -68,10 +69,6 @@ export async function GET(
   }
 }
 
-/* FIXME: Change the process, now the content of blog will come from rich text editor and 
-            there is the chance that user upload multiple images for the blog, so fix it with cloudinary 
-            for multiple image upload. Also the blog content will come as markdown so we have to handle it.
-  */
 export async function PATCH(
   request: Request,
   { params }: { params: { username: string; slug: string } }
@@ -120,45 +117,59 @@ export async function PATCH(
     const title = formData.get("title") as string;
     const postSlug = formData.get("slug") as string;
     const content = formData.get("content") as string;
+    const categories = formData.getAll("categories") as string[];
     const visibility = formData.has("visibility")
       ? formData.get("visibility") === "true"
       : true;
 
-    const file = formData.get("blog-image") as File;
+    const files = formData.getAll("blog-images") as File[];
 
-    const localFilePath = `./public/uploads/${file.name}`;
+    const existingPost = await PostModel.findOne({
+      userId: postOwner._id,
+      slug,
+    });
 
-    let newImgUrl = "";
-    if (file) {
-      const existingPost = await PostModel.findOne({
-        userId: postOwner._id,
-        slug,
-      });
-
-      if (existingPost?.image) {
-        await deleteFromCloudinary(existingPost.image);
-      }
-
-      const arrayBuffer = await file.arrayBuffer();
-      const buffer = new Uint8Array(arrayBuffer);
-
-      await fs.writeFile(localFilePath, buffer);
-
-      revalidatePath("/");
-
-      const uploadResult = await uploadToCloudinary(localFilePath);
-
-      if (!uploadResult) {
-        await fs.unlink(localFilePath);
-        return Response.json(
-          { success: false, message: "Failed to upload to Cloudinary" },
-          { status: 500 }
-        );
-      }
-
-      newImgUrl = uploadResult.secure_url;
-      await fs.unlink(localFilePath);
+    if (!existingPost) {
+      return Response.json(
+        { success: false, message: "Post not found" },
+        { status: 404 }
+      );
     }
+
+    const imageUrls: string[] = [];
+    if (files.length > 0) {
+      for (const imageUrl of existingPost.images || []) {
+        await deleteFromCloudinary(imageUrl);
+      }
+
+      for (const file of files) {
+        if (file.size > 5 * 1024 * 1024 || !file.type.startsWith("image/")) {
+          return Response.json(
+            { success: false, message: "Invalid file type or size" },
+            { status: 400 }
+          );
+        }
+
+        const arrayBuffer = await file.arrayBuffer();
+        const buffer = new Uint8Array(arrayBuffer);
+        const tempFilePath = `./public/uploads/${file.name}`;
+        await fs.writeFile(tempFilePath, buffer);
+
+        const uploadResult = await uploadToCloudinary(tempFilePath);
+        await fs.unlink(tempFilePath);
+
+        if (uploadResult?.secure_url) {
+          imageUrls.push(uploadResult.secure_url);
+        } else {
+          return Response.json(
+            { success: false, message: "Failed to upload an image" },
+            { status: 500 }
+          );
+        }
+      }
+    }
+
+    const markdownContent = new TurndownService().turndown(content);
 
     const updatedPost = await PostModel.findOneAndUpdate(
       { userId: postOwner._id, slug },
@@ -166,9 +177,10 @@ export async function PATCH(
         $set: {
           title,
           slug: postSlug,
-          blogContent: content,
+          categories: [...categories],
+          blogContent: markdownContent,
           visibility,
-          image: newImgUrl,
+          images: imageUrls.length > 0 ? imageUrls : existingPost.images,
         },
       },
       { new: true }
@@ -176,13 +188,12 @@ export async function PATCH(
 
     if (!updatedPost) {
       return Response.json(
-        {
-          success: false,
-          message: "Post not found or failed to update",
-        },
-        { status: 404 }
+        { success: false, message: "Failed to update the post" },
+        { status: 500 }
       );
     }
+
+    revalidatePath("/");
 
     return Response.json(
       {
@@ -193,12 +204,9 @@ export async function PATCH(
       { status: 200 }
     );
   } catch (error) {
-    console.log("Error updating the blog", error);
+    console.error("Error updating the blog:", error);
     return Response.json(
-      {
-        success: false,
-        message: "Failed to update the blog",
-      },
+      { success: false, message: "Failed to update the blog" },
       { status: 500 }
     );
   }
@@ -215,70 +223,53 @@ export async function DELETE(
 
   if (!session || !user) {
     return Response.json(
-      {
-        success: false,
-        message: "Not Authenticated",
-      },
+      { success: false, message: "Not Authenticated" },
       { status: 401 }
     );
   }
+
   try {
     const { username, slug } = params;
     const postOwner = await UserModel.findOne({ username }).select("_id");
 
     if (!postOwner) {
       return Response.json(
-        {
-          success: false,
-          message: "User not found",
-        },
+        { success: false, message: "User not found" },
         { status: 404 }
       );
     }
 
     if ((postOwner?._id as mongoose.Types.ObjectId).toString() !== user._id) {
       return Response.json(
-        {
-          success: false,
-          message: "Not Authorized",
-        },
+        { success: false, message: "Not Authorized" },
         { status: 403 }
       );
     }
 
-    const deletedPost = await PostModel.findOneAndDelete({
+    const postToDelete = await PostModel.findOneAndDelete({
       userId: postOwner._id,
       slug,
     });
 
-    if (!deletedPost) {
+    if (!postToDelete) {
       return Response.json(
-        {
-          success: false,
-          message: "Post not found or Failed to delete ",
-        },
+        { success: false, message: "Post not found or failed to delete" },
         { status: 404 }
       );
     }
 
-    if (deletedPost.image) {
-      await deleteFromCloudinary(deletedPost.image);
+    for (const imageUrl of postToDelete.images || []) {
+      await deleteFromCloudinary(imageUrl);
     }
 
     return Response.json(
-      {
-        success: true,
-        message: "Post delete successful",
-      },
+      { success: true, message: "Post deleted successfully" },
       { status: 200 }
     );
   } catch (error) {
-    console.log("Error deleting the blog", error);
+    console.error("Error deleting the blog:", error);
     return Response.json(
-      {
-        success: false,
-        message: "Failed to delete the blog",
-      },
+      { success: false, message: "Failed to delete the blog" },
       { status: 500 }
     );
   }

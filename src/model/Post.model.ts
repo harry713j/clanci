@@ -25,7 +25,7 @@ export interface Post extends Document {
   title: string;
   slug: string;
   blogContent: string;
-  image: string;
+  images: Array<string>;
   visibility: boolean;
   comments: Comment[];
   likes: mongoose.Types.ObjectId[];
@@ -54,8 +54,8 @@ const PostSchema: Schema<Post> = new Schema(
       type: String,
       required: [true, "Blog content is required"],
     },
-    image: {
-      type: String,
+    images: {
+      type: [String],
     },
     visibility: {
       type: Boolean,
