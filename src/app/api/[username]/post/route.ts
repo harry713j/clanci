@@ -5,12 +5,11 @@ import { getServerSession, User } from "next-auth";
 import { uploadToCloudinary } from "@/lib/cloudinary";
 import fs from "fs/promises";
 import { revalidatePath } from "next/cache";
+import TurndownService from "turndown";
+
+const turndownService = new TurndownService();
 
 export async function POST(request: Request) {
-  /* FIXME: Change the process, now the content of blog will come from rich text editor and 
-            there is the chance that user upload multiple images for the blog, so fix it with cloudinary 
-            for multiple image upload. Also the blog content will come as markdown so we have to handle it.
-  */
   await dbConnect();
 
   const session = await getServerSession(authOptions);
@@ -27,19 +26,17 @@ export async function POST(request: Request) {
   }
 
   try {
-    //TODO: also take blog categories
     const formData = await request.formData();
-    const file = formData.get("blog-image") as File;
+    const files = formData.getAll("blog-images") as File[];
     const title = formData.get("title") as string;
     const slug = formData.get("slug") as string;
     const content = formData.get("content") as string;
+    const categories = formData.getAll("categories") as string[];
     const visibility = formData.has("visibility")
       ? formData.get("visibility") === "true"
       : true;
 
-    const localFilePath = `./public/uploads/${file.name}`;
-
-    if (!title || !slug || !content || !visibility) {
+    if (!title || !slug || !content || !visibility || categories.length === 0) {
       return Response.json(
         {
           success: false,
@@ -49,9 +46,9 @@ export async function POST(request: Request) {
       );
     }
 
-    let imgUrl = "";
+    const imgUrls: string[] = [];
 
-    if (file) {
+    for (const file of files) {
       if (file.size > 5 * 1024 * 1024 || !file.type.startsWith("image/")) {
         return Response.json(
           { success: false, message: "Invalid file type or size" },
@@ -59,41 +56,45 @@ export async function POST(request: Request) {
         );
       }
 
+      const localFilePath = `./public/uploads/${file.name}`;
       const arrayBuffer = await file.arrayBuffer();
       const buffer = new Uint8Array(arrayBuffer);
 
       await fs.writeFile(localFilePath, buffer);
 
-      revalidatePath("/");
-
       const uploadResult = await uploadToCloudinary(localFilePath);
+      await fs.unlink(localFilePath);
 
-      if (!uploadResult) {
-        await fs.unlink(localFilePath);
+      if (uploadResult?.secure_url) {
+        imgUrls.push(uploadResult.secure_url);
+      } else {
         return Response.json(
           { success: false, message: "Failed to upload to Cloudinary" },
           { status: 500 }
         );
       }
-
-      imgUrl = uploadResult.secure_url;
-      await fs.unlink(localFilePath);
     }
 
-    await PostModel.create({
+    const markdownContent = turndownService.turndown(content);
+
+    const newPost = await PostModel.create({
       userId: user._id,
       title,
       slug,
-      blogContent: content,
+      categories: [...categories],
+      blogContent: markdownContent,
       visibility,
-      image: imgUrl,
+      images: imgUrls,
       comments: [],
     });
+
+    revalidatePath("/");
 
     return Response.json(
       {
         success: true,
         message: "Blog post created successfully",
+        post: newPost,
       },
       { status: 201 }
     );
