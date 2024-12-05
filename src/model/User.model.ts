@@ -12,6 +12,7 @@ export interface User extends Document {
   firstName: string;
   lastName: string;
   posts: mongoose.Types.ObjectId[];
+  interests: string[];
 }
 
 const UserSchema: Schema<User> = new Schema(
@@ -53,6 +54,7 @@ const UserSchema: Schema<User> = new Schema(
     },
     bio: {
       type: String,
+      maxlength: 255,
     },
     firstName: {
       type: String,
@@ -61,6 +63,9 @@ const UserSchema: Schema<User> = new Schema(
     lastName: {
       type: String,
       maxlength: 24,
+    },
+    interests: {
+      type: [String],
     },
     posts: [
       {
