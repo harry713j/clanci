@@ -66,6 +66,11 @@ export async function POST(request: Request) {
         verificationCodeExpiry: expiryDate,
         isVerified: false,
         posts: [],
+        firstName: "",
+        lastName: "",
+        bio: "",
+        profilePicture: "",
+        interests: [],
       });
     }
 
